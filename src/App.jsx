@@ -16,21 +16,219 @@ import mapuche from './assets/mapuche.jpg';
 import guerre_prix from './assets/guerre_prix.jpg';
 import you from './assets/you.jpg';
 
+// Thumbnail cache management
+const THUMBNAIL_CACHE_KEY = 'johana_portfolio_thumbnails';
+const CACHE_VERSION = '1.0'; // Increment this if you want to regenerate all thumbnails
+
+// Function to create thumbnail from image
+const createThumbnail = (imageSrc, maxWidth = 400, maxHeight = 400, quality = 0.75) => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      // Calculate new dimensions maintaining aspect ratio
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, width, height);
+      const thumbnailDataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(thumbnailDataUrl);
+    };
+    
+    img.src = imageSrc;
+  });
+};
+
+// Function to get thumbnail cache key
+const getThumbnailKey = (paintingId) => `thumbnail_${paintingId}_v${CACHE_VERSION}`;
+
+// Function to load cached thumbnail
+const loadCachedThumbnail = (paintingId) => {
+  try {
+    const cached = localStorage.getItem(getThumbnailKey(paintingId));
+    return cached;
+  } catch (error) {
+    console.warn('Error loading cached thumbnail:', error);
+    return null;
+  }
+};
+
+// Function to save thumbnail to cache
+const saveThumbnailToCache = (paintingId, thumbnailDataUrl) => {
+  try {
+    localStorage.setItem(getThumbnailKey(paintingId), thumbnailDataUrl);
+    console.log(`✅ Thumbnail cached for painting ${paintingId}`);
+  } catch (error) {
+    console.warn('Error saving thumbnail to cache:', error);
+    // If localStorage is full, try to clear old thumbnails
+    try {
+      clearOldThumbnails();
+      localStorage.setItem(getThumbnailKey(paintingId), thumbnailDataUrl);
+    } catch (retryError) {
+      console.warn('Failed to save thumbnail even after cleanup:', retryError);
+    }
+  }
+};
+
+// Function to clear old thumbnail versions
+const clearOldThumbnails = () => {
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('thumbnail_') && !key.includes(`_v${CACHE_VERSION}`)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+  console.log(`🧹 Cleaned up ${keysToRemove.length} old thumbnails`);
+};
+
+// Function to download thumbnail (optional - for manual saving)
+const downloadThumbnail = (paintingId, thumbnailDataUrl, title) => {
+  const link = document.createElement('a');
+  link.download = `${title.toLowerCase().replace(/\s+/g, '_')}_thumb.jpg`;
+  link.href = thumbnailDataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// Custom hook for managing thumbnails with persistent cache
+const useThumbnails = (paintings) => {
+  const [thumbnails, setThumbnails] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      console.log('🖼️ Loading thumbnails...');
+      const thumbnailMap = {};
+      const toGenerate = [];
+      
+      // First, check cache for existing thumbnails
+      paintings.forEach(painting => {
+        const cached = loadCachedThumbnail(painting.id);
+        if (cached) {
+          thumbnailMap[painting.id] = cached;
+          console.log(`✅ Using cached thumbnail for: ${painting.title}`);
+        } else {
+          toGenerate.push(painting);
+          console.log(`⏳ Need to generate thumbnail for: ${painting.title}`);
+        }
+      });
+
+      // Set thumbnails we already have
+      setThumbnails(thumbnailMap);
+
+      // Generate missing thumbnails
+      if (toGenerate.length > 0) {
+        console.log(`🎨 Generating ${toGenerate.length} new thumbnails...`);
+        
+        const generationPromises = toGenerate.map(async (painting) => {
+          try {
+            console.log(`🔄 Generating thumbnail for: ${painting.title}`);
+            const thumbnail = await createThumbnail(painting.image);
+            
+            // Save to cache
+            saveThumbnailToCache(painting.id, thumbnail);
+            
+            // Optionally log the data URL for manual saving
+            console.log(`📁 Thumbnail generated for ${painting.title}:`, thumbnail.substring(0, 50) + '...');
+            
+            return { id: painting.id, thumbnail };
+          } catch (error) {
+            console.error(`❌ Error creating thumbnail for ${painting.title}:`, error);
+            return { id: painting.id, thumbnail: painting.image }; // Fallback
+          }
+        });
+
+        const newThumbnails = await Promise.all(generationPromises);
+        
+        // Update state with new thumbnails
+        setThumbnails(prevThumbnails => {
+          const updated = { ...prevThumbnails };
+          newThumbnails.forEach(({ id, thumbnail }) => {
+            updated[id] = thumbnail;
+          });
+          return updated;
+        });
+
+        console.log('✨ All thumbnails ready!');
+      }
+
+      setLoading(false);
+    };
+
+    if (paintings.length > 0) {
+      // Clear old thumbnails on app start
+      clearOldThumbnails();
+      loadThumbnails();
+    }
+  }, [paintings]);
+
+  // Function to manually download all thumbnails
+  const downloadAllThumbnails = useCallback(() => {
+    paintings.forEach(painting => {
+      const thumbnail = thumbnails[painting.id];
+      if (thumbnail && thumbnail.startsWith('data:')) {
+        setTimeout(() => {
+          downloadThumbnail(painting.id, thumbnail, painting.title);
+        }, 100 * painting.id); // Stagger downloads
+      }
+    });
+  }, [paintings, thumbnails]);
+
+  // Function to clear all cached thumbnails (for development)
+  const clearThumbnailCache = useCallback(() => {
+    paintings.forEach(painting => {
+      localStorage.removeItem(getThumbnailKey(painting.id));
+    });
+    console.log('🗑️ Thumbnail cache cleared');
+    window.location.reload(); // Reload to regenerate
+  }, [paintings]);
+
+  return { thumbnails, loading, downloadAllThumbnails, clearThumbnailCache };
+};
+
 // Optimized Painting Card Component
-const PaintingCard = React.memo(({ painting, onClick }) => {
+const PaintingCard = React.memo(({ painting, thumbnail, onClick, isLoading }) => {
   const handleClick = useCallback(() => {
-    onClick(painting);
-  }, [painting, onClick]);
+    if (!isLoading) {
+      onClick(painting);
+    }
+  }, [painting, onClick, isLoading]);
 
   return (
-    <div className="painting-card" onClick={handleClick}>
-      <img 
-        src={painting.image} 
-        alt={painting.title}
-        loading="lazy"
-        decoding="async"
-        style={{ objectFit: 'cover' }}
-      />
+    <div className={`painting-card ${isLoading ? 'loading' : ''}`} onClick={handleClick}>
+      {isLoading ? (
+        <div className="thumbnail-loading">
+          <div className="loading-spinner"></div>
+        </div>
+      ) : (
+        <img 
+          src={thumbnail || painting.image}
+          alt={painting.title}
+          loading="lazy"
+          decoding="async"
+          style={{ objectFit: 'cover' }}
+        />
+      )}
       <div className="painting-info">
         <h3>{painting.title}</h3>
         <p>{painting.year}</p>
@@ -40,20 +238,28 @@ const PaintingCard = React.memo(({ painting, onClick }) => {
 });
 
 // Optimized Full Gallery Card Component
-const FullGalleryCard = React.memo(({ painting, onClick }) => {
+const FullGalleryCard = React.memo(({ painting, thumbnail, onClick, isLoading }) => {
   const handleClick = useCallback(() => {
-    onClick(painting);
-  }, [painting, onClick]);
+    if (!isLoading) {
+      onClick(painting);
+    }
+  }, [painting, onClick, isLoading]);
 
   return (
-    <div className="full-gallery-card" onClick={handleClick}>
-      <img 
-        src={painting.image} 
-        alt={painting.title}
-        loading="lazy"
-        decoding="async"
-        style={{ objectFit: 'cover' }}
-      />
+    <div className={`full-gallery-card ${isLoading ? 'loading' : ''}`} onClick={handleClick}>
+      {isLoading ? (
+        <div className="thumbnail-loading">
+          <div className="loading-spinner"></div>
+        </div>
+      ) : (
+        <img 
+          src={thumbnail || painting.image}
+          alt={painting.title}
+          loading="lazy"
+          decoding="async"
+          style={{ objectFit: 'cover' }}
+        />
+      )}
       <div className="full-gallery-info">
         <h3>{painting.title}</h3>
         <p className="year">{painting.year}</p>
@@ -91,7 +297,6 @@ const Header = React.memo(({ currentView, setCurrentView }) => {
     setCurrentView('fullGallery');
     setActiveSection('gallery');
     setMobileMenuOpen(false);
-    // Scroll to top when going to gallery
     setTimeout(() => {
       window.scrollTo(0, 0);
     }, 0);
@@ -101,7 +306,6 @@ const Header = React.memo(({ currentView, setCurrentView }) => {
     setCurrentView('home');
     setActiveSection('home');
     setMobileMenuOpen(false);
-    // Scroll to top when going home
     setTimeout(() => {
       window.scrollTo(0, 0);
     }, 0);
@@ -195,7 +399,6 @@ const ExhibitionsSection = React.memo(() => {
       location: "12049 boulevard Laurentien, Montréal",
       description: "Point de rencontre de la peinture, poésie, sculpture, vidéo et musique."
     },
-  
   ], []);
 
   return (
@@ -218,10 +421,9 @@ const ExhibitionsSection = React.memo(() => {
 });
 
 // Gallery Component
-const Gallery = React.memo(({ paintings, setSelectedPainting, setCurrentView }) => {
+const Gallery = React.memo(({ paintings, thumbnails, thumbnailsLoading, setSelectedPainting, setCurrentView }) => {
   const goToFullGallery = useCallback(() => {
     setCurrentView('fullGallery');
-    // Scroll to top when going to full gallery
     setTimeout(() => {
       window.scrollTo(0, 0);
     }, 0);
@@ -242,7 +444,9 @@ const Gallery = React.memo(({ paintings, setSelectedPainting, setCurrentView }) 
             <PaintingCard
               key={painting.id}
               painting={painting}
+              thumbnail={thumbnails[painting.id]}
               onClick={setSelectedPainting}
+              isLoading={thumbnailsLoading}
             />
           ))}
         </div>
@@ -260,10 +464,9 @@ const Gallery = React.memo(({ paintings, setSelectedPainting, setCurrentView }) 
 });
 
 // Full Gallery Page Component
-const FullGalleryPage = React.memo(({ paintings, setSelectedPainting, setCurrentView }) => {
+const FullGalleryPage = React.memo(({ paintings, thumbnails, thumbnailsLoading, setSelectedPainting, setCurrentView }) => {
   const goBack = useCallback(() => {
     setCurrentView('home');
-    // Scroll to top when going back
     setTimeout(() => {
       window.scrollTo(0, 0);
     }, 0);
@@ -288,7 +491,9 @@ const FullGalleryPage = React.memo(({ paintings, setSelectedPainting, setCurrent
             <FullGalleryCard
               key={painting.id}
               painting={painting}
+              thumbnail={thumbnails[painting.id]}
               onClick={setSelectedPainting}
+              isLoading={thumbnailsLoading}
             />
           ))}
         </div>
@@ -323,9 +528,9 @@ const PaintingModal = React.memo(({ painting, setSelectedPainting }) => {
         />
         <div className="painting-details">
           <h2>{painting.title}</h2>
-          <p><strong>Année:</strong> {painting.year}</p>
-          <p><strong>Technique:</strong> {painting.technique}</p>
-          <p><strong>Dimensions:</strong> {painting.dimensions}</p>
+          <p>{painting.technique}</p>
+          <p>{painting.dimensions}</p>
+          <p>{painting.year}</p>
         </div>
       </div>
     </div>
@@ -345,7 +550,7 @@ const ContactSection = React.memo(() => {
             </a>
           </div>
           <div className="contact-line">
-            <a href="https://www.instagram.com/johanadupin" target="_blank" rel="noopener noreferrer">
+            <a href="https://instagram.com/johanadupin" target="_blank" rel="noopener noreferrer">
               Instagram
             </a>
           </div>
@@ -481,6 +686,9 @@ const App = () => {
     return sortedPaintings.slice(0, 5);
   }, [sortedPaintings]);
 
+  // Generate thumbnails for all paintings with caching
+  const { thumbnails, loading: thumbnailsLoading, downloadAllThumbnails, clearThumbnailCache } = useThumbnails(sortedPaintings);
+
   // Memoized callbacks
   const handleSetSelectedPainting = useCallback((painting) => {
     setSelectedPainting(painting);
@@ -490,12 +698,25 @@ const App = () => {
     setCurrentView(view);
   }, []);
 
+  // Development helper - expose functions to console
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      window.downloadAllThumbnails = downloadAllThumbnails;
+      window.clearThumbnailCache = clearThumbnailCache;
+      console.log('🛠️ Dev tools available:');
+      console.log('- window.downloadAllThumbnails() - Download all thumbnails as files');
+      console.log('- window.clearThumbnailCache() - Clear cache and regenerate thumbnails');
+    }
+  }, [downloadAllThumbnails, clearThumbnailCache]);
+
   if (currentView === 'fullGallery') {
     return (
       <div className="App">
         <Header currentView={currentView} setCurrentView={handleSetCurrentView} />
         <FullGalleryPage 
           paintings={sortedPaintings} 
+          thumbnails={thumbnails}
+          thumbnailsLoading={thumbnailsLoading}
           setSelectedPainting={handleSetSelectedPainting}
           setCurrentView={handleSetCurrentView}
         />
@@ -517,6 +738,8 @@ const App = () => {
       <ExhibitionsSection />
       <Gallery 
         paintings={galleryPaintings} 
+        thumbnails={thumbnails}
+        thumbnailsLoading={thumbnailsLoading}
         setSelectedPainting={handleSetSelectedPainting}
         setCurrentView={handleSetCurrentView}
       />
