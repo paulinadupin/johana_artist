@@ -74,7 +74,7 @@ const loadCachedThumbnail = (paintingId) => {
 const saveThumbnailToCache = (paintingId, thumbnailDataUrl) => {
   try {
     localStorage.setItem(getThumbnailKey(paintingId), thumbnailDataUrl);
-    console.log(`✅ Thumbnail cached for painting ${paintingId}`);
+    console.log(`Thumbnail cached for painting ${paintingId}`);
   } catch (error) {
     console.warn('Error saving thumbnail to cache:', error);
     // If localStorage is full, try to clear old thumbnails
@@ -117,7 +117,7 @@ const useThumbnails = (paintings) => {
 
   useEffect(() => {
     const loadThumbnails = async () => {
-      console.log('🖼️ Loading thumbnails...');
+      console.log('Loading thumbnails...');
       const thumbnailMap = {};
       const toGenerate = [];
       
@@ -126,7 +126,7 @@ const useThumbnails = (paintings) => {
         const cached = loadCachedThumbnail(painting.id);
         if (cached) {
           thumbnailMap[painting.id] = cached;
-          console.log(`✅ Using cached thumbnail for: ${painting.title}`);
+          console.log(`Using cached thumbnail for: ${painting.title}`);
         } else {
           toGenerate.push(painting);
           console.log(`⏳ Need to generate thumbnail for: ${painting.title}`);
@@ -138,7 +138,7 @@ const useThumbnails = (paintings) => {
 
       // Generate missing thumbnails
       if (toGenerate.length > 0) {
-        console.log(`🎨 Generating ${toGenerate.length} new thumbnails...`);
+        console.log(`Generating ${toGenerate.length} new thumbnails...`);
         
         const generationPromises = toGenerate.map(async (painting) => {
           try {
@@ -149,11 +149,11 @@ const useThumbnails = (paintings) => {
             saveThumbnailToCache(painting.id, thumbnail);
             
             // Optionally log the data URL for manual saving
-            console.log(`📁 Thumbnail generated for ${painting.title}:`, thumbnail.substring(0, 50) + '...');
+            console.log(`Thumbnail generated for ${painting.title}:`, thumbnail.substring(0, 50) + '...');
             
             return { id: painting.id, thumbnail };
           } catch (error) {
-            console.error(`❌ Error creating thumbnail for ${painting.title}:`, error);
+            console.error(`Error creating thumbnail for ${painting.title}:`, error);
             return { id: painting.id, thumbnail: painting.image }; // Fallback
           }
         });
@@ -169,7 +169,7 @@ const useThumbnails = (paintings) => {
           return updated;
         });
 
-        console.log('✨ All thumbnails ready!');
+        console.log('All thumbnails ready!');
       }
 
       setLoading(false);
@@ -199,7 +199,7 @@ const useThumbnails = (paintings) => {
     paintings.forEach(painting => {
       localStorage.removeItem(getThumbnailKey(painting.id));
     });
-    console.log('🗑️ Thumbnail cache cleared');
+    console.log('Thumbnail cache cleared');
     window.location.reload(); // Reload to regenerate
   }, [paintings]);
 

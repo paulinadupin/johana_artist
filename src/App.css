@@ -1,4 +1,3 @@
-/* Reset and base styles with luxury enhancements */
 * {
   margin: 0;
   padding: 0;
@@ -26,7 +25,6 @@ body {
    box-sizing: border-box;
 }
 
-/* Luxury container with gold accents */
 .container {
   width: 100%;
   max-width: 100vw;
@@ -35,7 +33,6 @@ body {
   box-sizing: border-box; 
 }
 
-/* Header - Luxury Glassmorphism with Gold Accents */
 .header {
   position: fixed;
   top: 0;
@@ -68,7 +65,6 @@ body {
   position: relative;
 }
 
-/* Luxury logo with gold gradient */
 .logo h2 {
   font-size: clamp(1.4rem, 4vw, 2rem);
   font-weight: 600;
@@ -93,7 +89,7 @@ body {
   background: linear-gradient(90deg, transparent, #d4af37, transparent);
 }
 
-/* Mobile Menu Button - Luxury Design */
+/* Mobile Menu Button */
 .mobile-menu-btn {
   display: flex;
   flex-direction: column;
@@ -136,7 +132,7 @@ body {
   background: #d4af37;
 }
 
-/* Navigation Links - Luxury Mobile Menu */
+/* Navigation Links  */
 .nav-links {
   position: fixed;
   top: 0;
@@ -201,7 +197,7 @@ body {
   width: 80%;
 }
 
-/* Hero Section - Luxury Design */
+/* Hero Section  */
 .hero {
   margin-top: clamp(60px, 15vw, 80px);
   padding: clamp(4rem, 10vw, 8rem) 0;
@@ -370,7 +366,7 @@ h2::after {
   border-radius: 1px;
 }
 
-/* Exhibitions Section - Luxury Design */
+/* Exhibitions Section  */
 .exhibitions {
   background: linear-gradient(135deg, #f9f7f5 0%, #f0ece6 100%);
   width: 100%;
@@ -485,7 +481,7 @@ h2::after {
   letter-spacing: 0.02em;
 }
 
-/* Gallery Section - Luxury Design */
+/* Gallery Section  */
 .gallery {
   background: #ffffff;
   width: 100%;
@@ -592,7 +588,7 @@ h2::after {
   letter-spacing: 0.02em;
 }
 
-/* Modal - Luxury Design */
+/* Modal */
 .painting-modal {
   position: fixed;
   top: 0;
@@ -737,7 +733,7 @@ h2::after {
   transform-origin: left;
 }
 
-/* View All Button - Luxury Design */
+/* View All Button  */
 .view-all-btn-container {
   display: flex;
   justify-content: center;
@@ -783,7 +779,7 @@ h2::after {
   
 }
 
-/* Full Gallery Page - Luxury Design */
+/* Full Gallery Page  */
 .full-gallery-page {
   margin-top: clamp(60px, 15vw, 80px);
   min-height: calc(100vh - clamp(60px, 15vw, 80px));
@@ -949,7 +945,7 @@ h2::after {
   letter-spacing: 0.02em;
 }
 
-/* Contact Section - Luxury Design */
+/* Contact Section  */
 .contact {
   background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
   color: white;
@@ -1068,7 +1064,7 @@ h2::after {
   font-size: 1.5rem;
 }
 
-/* Footer - Luxury Design */
+/* Footer*/
 .footer {
   background: #111;
   color: #999;
